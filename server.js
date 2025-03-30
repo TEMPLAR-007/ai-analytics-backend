@@ -70,7 +70,6 @@ const upload = multer({
 });
 
 // PostgreSQL client with connection pooling
-
 // const pgClient = new pkg.Client({
 //     user: process.env.DB_USER,
 //     host: process.env.DB_HOST,
@@ -80,11 +79,14 @@ const upload = multer({
 //     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 // });
 
-// for using render database
 const pgClient = new pkg.Client({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
+
+pgClient.connect()
+    .then(() => console.log("✅ Connected to PostgreSQL"))
+    .catch(err => console.error("❌ PostgreSQL connection error:", err));
 
 
 pgClient.connect()
@@ -116,6 +118,28 @@ const cacheMiddleware = (duration) => {
         next();
     };
 };
+
+// Optimize database queries with connection pooling
+// const pool = new pkg.Pool({
+//     user: process.env.DB_USER,
+//     host: process.env.DB_HOST,
+//     database: process.env.DB_NAME,
+//     password: process.env.DB_PASSWORD,
+//     port: process.env.DB_PORT,
+//     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+//     max: 20, // Maximum number of clients in the pool
+//     idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+//     connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
+// });
+
+const pool = new pkg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+    max: 20, // Maximum number of clients in the pool
+    idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+    connectionTimeoutMillis: 2000 // Timeout if a connection takes too long
+});
+
 
 
 //function to verify table exists in database
