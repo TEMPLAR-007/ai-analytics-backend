@@ -69,30 +69,6 @@ const upload = multer({
     }
 });
 
-// PostgreSQL client with connection pooling
-// const pgClient = new pkg.Client({
-//     user: process.env.DB_USER,
-//     host: process.env.DB_HOST,
-//     database: process.env.DB_NAME,
-//     password: process.env.DB_PASSWORD,
-//     port: process.env.DB_PORT,
-//     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-// });
-
-const pgClient = new pkg.Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
-});
-
-pgClient.connect()
-    .then(() => console.log("✅ Connected to PostgreSQL"))
-    .catch(err => console.error("❌ PostgreSQL connection error:", err));
-
-
-pgClient.connect()
-    .then(() => console.log("Connected to PostgreSQL"))
-    .catch(err => console.error("PostgreSQL connection error:", err));
-
 // Add compression middleware
 app.use(compression());
 
@@ -132,6 +108,7 @@ const cacheMiddleware = (duration) => {
 //     connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
 // });
 
+// for render deployment
 const pool = new pkg.Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
@@ -139,6 +116,10 @@ const pool = new pkg.Pool({
     idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
     connectionTimeoutMillis: 2000 // Timeout if a connection takes too long
 });
+
+pool.connect()
+    .then(() => console.log("✅ PostgreSQL Pool Connected"))
+    .catch(err => console.error("❌ PostgreSQL Pool Connection Error:", err));
 
 
 
@@ -397,7 +378,7 @@ async function executeSQL(sql) {
     }
 
     try {
-        const result = await pgClient.query(sql);
+        const result = await pool.query(sql);
         return result.rows;
     } catch (error) {
         console.error("SQL Error:", error.message);
