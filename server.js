@@ -29,13 +29,25 @@ const cache = new NodeCache({ stdTTL: 300 });
 
 // Security middleware
 app.use(helmet());
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://ai-analytics-frontend.onrender.com"
+];
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],  // Added all common methods
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
     optionsSuccessStatus: 200
 }));
+
 
 // Rate limiting
 const limiter = rateLimit({
