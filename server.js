@@ -1,206 +1,3 @@
-// import express from 'express';
-// import bodyParser from 'body-parser';
-// import { Groq } from 'groq-sdk'; // Import Groq SDK
-// import multer from 'multer'; // For file uploads
-// import xlsx from 'xlsx'; // For reading Excel files
-// import cors from 'cors';
-
-// const { version } = require("xlsx");
-
-// const app = express();
-// const port = 3000;
-
-// app.use(cors({
-//     origin: "http://localhost:5173", // Allow frontend URL
-//     methods: ["GET", "POST"],        // Allow only necessary methods
-//     allowedHeaders: ["Content-Type"] // Allow required headers
-// }));
-
-// // Initialize Groq client with your API key
-// const groq = new Groq({
-//     apiKey: "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"
-// });
-
-// // Middleware to parse incoming JSON requests
-// app.use(bodyParser.json());
-
-// // Configure multer for file uploads
-// const upload = multer({ dest: 'uploads/' }); // Files will be temporarily saved in the 'uploads' folder
-
-// // Variable to store uploaded data
-// let uploadedData = [];
-
-// // Endpoint to upload an Excel file
-// app.post('/upload', upload.single('file'), (req, res) => {
-//     if (!req.file) {
-//         return res.status(400).json({ error: "No file uploaded" });
-//     }
-
-//     try {
-//         // Read the uploaded Excel file
-//         const workbook = xlsx.readFile(req.file.path);
-//         const sheetName = workbook.SheetNames[0]; // Get the first sheet
-//         const sheet = workbook.Sheets[sheetName];
-
-//         // Convert the sheet to JSON
-//         uploadedData = xlsx.utils.sheet_to_json(sheet);
-
-//         // Log the uploaded data for debugging
-//         console.log("Uploaded Data:", uploadedData);
-
-//         res.json({ message: "File uploaded successfully", data: uploadedData });
-//     } catch (error) {
-//         console.error("Error processing file:", error);
-//         res.status(500).json({ error: "Failed to process the file" });
-//     }
-// });
-
-// // Define the queryAI function using Groq SDK
-// async function queryAI(query, data) {
-//     try {
-//         const prompt = `
-// You are an AI that processes structured JSON data and generates insights, including charts.
-
-// **Dataset:**
-// ${JSON.stringify(data)}
-
-// **Task:**
-// - If the query requires filtering, return **only relevant records**.
-// - If the query requires a calculation, compute the result and include it in the response.
-// - If the query requires a **chart**, return **chart-ready data** formatted for visualization.
-// - Ensure the response is **valid JSON** with NO extra text.
-
-// **Example Outputs:**
-// 1️⃣ **For filtering**:
-// \`\`\`json
-// {
-//     "filtered_data": [
-//         { "name": "Laptop", "category": "Electronics", "total_sales": 67499.25 }
-//     ]
-// }
-// \`\`\`
-
-// 2️⃣ **For calculation**:
-// \`\`\`json
-// {
-//     "total_sales": 142497.65
-// }
-// \`\`\`
-
-// 3️⃣ **For charts** (e.g., last-selling products by date):
-// \`\`\`json
-// {
-//     "chart": {
-//         "title": "Sales Trend (Last Sold Items)",
-//         "type": "bar",
-//         "labels": ["2025-01-25", "2025-02-10", "2025-01-30", "2025-01-28"],
-//         "datasets": [
-//             {
-//                 "label": "Total Sales",
-//                 "data": [59999, 67499.25, 5998.8, 59998],
-//                 "backgroundColor": ["#ff6384", "#36a2eb", "#ffce56", "#4bc0c0"]
-//             }
-//         ]
-//     }
-// }
-// \`\`\`
-
-// //         **User Query:** "${query}"
-// //         `;
-
-//         const chatCompletion = await groq.chat.completions.create({
-//             messages: [{ role: "user", content: prompt }],
-//             model: "deepseek-r1-distill-llama-70b",
-//             temperature: 0.3,
-//             max_completion_tokens: 4096,
-//             top_p: 0.95,
-//             stream: false
-//         });
-
-//         // Extract AI response
-//         const content = chatCompletion.choices[0].message.content.trim();
-
-//         // Remove potential Markdown JSON formatting
-//         const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-//         const jsonString = jsonMatch ? jsonMatch[1] : content;
-
-//         // Ensure response is valid JSON
-//         return JSON.parse(jsonString);
-//     } catch (error) {
-//         console.error("Error fetching from Groq API:", error.message);
-//         return { error: "Failed to process AI response" };
-//     }
-// }
-
-
-// // Handle POST request to process the query
-// app.post("/query", async (req, res) => {
-//     const { query } = req.body;
-
-//     if (!query || uploadedData.length === 0) {
-//         return res.status(400).json({ error: "Query and uploaded data are required" });
-//     }
-
-//     try {
-//         const filteredData = await queryAI(query, uploadedData);
-//         res.json(filteredData); // Send back only the relevant records
-//     } catch (error) {
-//         console.error("Error processing query:", error);
-//         res.status(500).json({ error: "Internal Server Error" });
-//     }
-// });
-
-
-// // Endpoint to get data for visualizations
-// app.get("/data", (req, res) => {
-//     if (uploadedData.length === 0) {
-//         return res.status(400).json({ error: "No data available" });
-//     }
-
-//     // Example: Return data for a bar chart (total sales by product)
-//     const chartData = uploadedData.map(item => ({
-//         name: item.name,
-//         totalSales: parseFloat(item.total_sales),
-//     }));
-
-//     res.json({ chartData });
-// });
-
-// // Start the server
-// app.listen(port, () => {
-//     console.log(`Server is running on http://localhost:${port}`);
-// });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Successful version 1.0 with PostgreSQL integration
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -209,39 +6,141 @@ import multer from 'multer';
 import xlsx from 'xlsx';
 import cors from 'cors';
 import pkg from 'pg';
-const { Client } = pkg;
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import NodeCache from 'node-cache';
+import compression from 'compression';
+import fs from 'fs';
+
+// Load environment variables
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// Middleware
+// Initialize cache with 5 minutes TTL
+const cache = new NodeCache({ stdTTL: 300 });
+
+// Security middleware
+app.use(helmet());
 app.use(cors({
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],  // Added all common methods
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
-app.use(bodyParser.json());
 
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
+
+// Body parser with size limits
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
+// Initialize Groq client with API key from environment variables
 const groq = new Groq({
-    apiKey: "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",
+    apiKey: process.env.GROQ_API_KEY
 });
 
-const upload = multer({ dest: 'uploads/' });
+// Configure multer with file size limits and type validation
+const upload = multer({
+    dest: 'uploads/',
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+            file.mimetype === 'application/vnd.ms-excel') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only Excel files are allowed!'), false);
+        }
+    }
+});
 
-// PostgreSQL client
-const pgClient = new Client({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'sales_db',
-    password: 'postgres',
-    port: 5432,
+// PostgreSQL client with connection pooling
+const pgClient = new pkg.Client({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 pgClient.connect()
     .then(() => console.log("Connected to PostgreSQL"))
     .catch(err => console.error("PostgreSQL connection error:", err));
 
-app.post('/upload', upload.single('file'), async (req, res) => {
+// Add compression middleware
+app.use(compression());
+
+// Cache middleware for GET requests
+const cacheMiddleware = (duration) => {
+    return (req, res, next) => {
+        if (req.method !== 'GET') {
+            return next();
+        }
+
+        const key = req.originalUrl;
+        const cachedResponse = cache.get(key);
+
+        if (cachedResponse) {
+            return res.json(cachedResponse);
+        }
+
+        res.originalJson = res.json;
+        res.json = (body) => {
+            cache.set(key, body, duration);
+            res.originalJson(body);
+        };
+        next();
+    };
+};
+
+// Optimize database queries with connection pooling
+const pool = new pkg.Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    max: 20, // Maximum number of clients in the pool
+    idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+    connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
+});
+
+//function to verify table exists in database
+async function verifyTableExists(tableName) {
+    try {
+        const query = `
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = $1
+            );
+        `;
+        const result = await pool.query(query, [tableName]);
+        return result.rows[0].exists;
+    } catch (error) {
+        console.error("Error verifying table:", error);
+        return false;
+    }
+}
+
+// Modify the upload endpoint to clean up files
+app.post('/upload', upload.single('file'), async (req, res, next) => {
     if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
     }
@@ -252,72 +151,197 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         const sheet = workbook.Sheets[sheetName];
         const data = xlsx.utils.sheet_to_json(sheet);
 
-        for (const row of data) {
-            await pgClient.query(
-                'INSERT INTO uploaded_data (name, category, total_sales) VALUES ($1, $2, $3)',
-                [row.name, row.category, row.total_sales]
-            );
+        // Delete the temporary file after reading
+        fs.unlink(req.file.path, (err) => {
+            if (err) {
+                console.error('Error deleting temporary file:', err);
+            } else {
+                console.log('Temporary file deleted successfully');
+            }
+        });
+
+        if (data.length === 0) {
+            throw new Error("Excel file is empty");
         }
 
-        res.json({ message: "File uploaded and data stored successfully" });
+        const originalFileName = req.file.originalname.replace(/\.[^/.]+$/, "");
+        const sanitizedFileName = originalFileName.replace(/[^a-zA-Z0-9]/g, "_");
+        const tableName = `${sanitizedFileName}_${Date.now()}`;
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Create tables_registry if it doesn't exist
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS tables_registry (
+                    id SERIAL PRIMARY KEY,
+                    table_name TEXT UNIQUE,
+                    original_file_name TEXT,
+                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    columns JSONB
+                );
+            `);
+
+            // Create the data table
+            const createTableQuery = `
+                CREATE TABLE IF NOT EXISTS ${tableName} (
+                    id SERIAL PRIMARY KEY,
+                    ${Object.keys(data[0]).map(col => {
+                const sampleValue = data[0][col];
+                const type = typeof sampleValue === 'number'
+                    ? Number.isInteger(sampleValue) ? 'INTEGER' : 'DECIMAL'
+                    : 'TEXT';
+                return `"${col}" ${type}`;
+            }).join(',\n                    ')}
+                );
+            `;
+            await client.query(createTableQuery);
+
+            // Insert the data
+            for (const row of data) {
+                const columns = Object.keys(row);
+                const values = columns.map(col => row[col]);
+                const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+
+                await client.query(
+                    `INSERT INTO ${tableName} (${columns.map(col => `"${col}"`).join(', ')})
+                     VALUES (${placeholders})`,
+                    values
+                );
+            }
+
+            // Register the table
+            await client.query(`
+                INSERT INTO tables_registry (table_name, original_file_name, columns)
+                VALUES ($1, $2, $3)
+            `, [tableName, req.file.originalname, JSON.stringify(Object.keys(data[0]))]);
+
+            await client.query('COMMIT');
+
+            res.json({
+                message: "File uploaded and data stored successfully",
+                tableName: tableName,
+                originalFileName: req.file.originalname
+            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+
     } catch (error) {
-        console.error("Error processing file:", error);
-        res.status(500).json({ error: "Failed to process the file" });
+        // Clean up the file even if processing fails
+        if (req.file) {
+            fs.unlink(req.file.path, (err) => {
+                if (err) console.error('Error deleting temporary file:', err);
+            });
+        }
+        next(error);
     }
 });
 
-async function getTableSchema() {
+// Modify the tables endpoint to fetch from database
+app.get('/tables', async (req, res, next) => {
     try {
-        const schemaQuery = `
-            SELECT column_name, data_type, is_nullable, column_default
-            FROM information_schema.columns
-            WHERE table_name = 'uploaded_data';
-        `;
-        const schemaResult = await pgClient.query(schemaQuery);
-        return schemaResult.rows;
+        const result = await pool.query(`
+            SELECT * FROM tables_registry
+            ORDER BY upload_date DESC
+        `);
+        res.json(result.rows);
     } catch (error) {
-        console.error("Error fetching schema:", error);
-        throw new Error("Failed to fetch table schema");
+        next(error);
     }
-}
+});
 
-// Function to convert natural language query to SQL using Groq API
-async function queryAIForSQL(query) {
+// Modify the query endpoint to handle queries without table name
+app.post("/query", async (req, res, next) => {
+    const { query, tableName } = req.body;
+
+    if (!query) {
+        return res.status(400).json({ error: "Query is required" });
+    }
+
     try {
-        const schema = await getTableSchema();
-        const sampleData = await pgClient.query(`
+        // If no table name provided, get the most recent table
+        let targetTable = tableName;
+        if (!targetTable) {
+            const latestTable = await pool.query(`
+                SELECT table_name
+                FROM tables_registry
+                ORDER BY upload_date DESC
+                LIMIT 1
+            `);
+
+            if (latestTable.rows.length === 0) {
+                return res.status(404).json({ error: "No tables found. Please upload data first." });
+            }
+
+            targetTable = latestTable.rows[0].table_name;
+        }
+
+        // Verify table exists
+        const tableExists = await verifyTableExists(targetTable);
+        if (!tableExists) {
+            return res.status(404).json({ error: "Table not found in database" });
+        }
+
+        const sql = await queryAIForSQL(query, targetTable);
+        const filteredData = await executeSQL(sql);
+        const chartData = await queryAIForChart(query, filteredData);
+
+        res.json({
+            query,
+            sql,
+            filteredData,
+            chartData,
+            tableName: targetTable
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Update queryAIForSQL to handle the table name properly
+async function queryAIForSQL(query, tableName) {
+    try {
+        // Get schema for the specific table
+        const schemaQuery = `
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_name = $1;
+        `;
+        const schema = await pool.query(schemaQuery, [tableName]);
+
+        // Get sample data from the specific table
+        const sampleData = await pool.query(`
             SELECT *
-            FROM uploaded_data
+            FROM ${tableName}
             LIMIT 5;
         `);
 
-        const schemaDescription = schema
+        const schemaDescription = schema.rows
             .map(col => `${col.column_name} (${col.data_type})`)
             .join(", ");
 
         const prompt = `
-        You are an AI that converts natural language queries into valid SQL queries for PostgreSQL.
+        You are an AI that converts natural language queries into valid PostgreSQL queries.
 
         **Table Schema:**
-        - Table name: uploaded_data
+        - Table name: ${tableName}
         - Columns: ${schemaDescription}
 
         **Sample Data:**
         ${JSON.stringify(sampleData.rows, null, 2)}
 
-        **Task:**
-        - Analyze the user's query and generate a valid SQL query based on the dataset schema and sample data.
-        - Use the dataset's column names and data types to infer the appropriate SQL logic.
-        - If the query involves filtering, use the relevant columns (e.g., "name", "category") and generate the appropriate condition.
-        - If the query involves calculations (e.g., sum, average, count), use the appropriate aggregation function.
-        - If the query involves sorting, include ORDER BY with the appropriate column and direction (ASC/DESC).
-        - If the query involves grouping, use GROUP BY with the appropriate column.
-        - If the query involves limiting results, use LIMIT.
-
-        **Rules:**
-        1. Always return **ONLY the SQL query** with NO additional text or explanations.
-        2. Use ILIKE for case-insensitive filtering.
-        3. Use PostgreSQL date functions (e.g., NOW(), INTERVAL) for time-based queries.
+        **Important SQL Rules:**
+        1. When using aggregate functions (SUM, COUNT, AVG, etc.), all non-aggregated columns MUST be included in GROUP BY
+        2. If mixing aggregate and non-aggregate columns, use GROUP BY for all non-aggregated columns
+        3. Always return ONLY the SQL query with NO additional text
+        4. Use ILIKE for case-insensitive filtering
+        5. For simple totals, avoid selecting individual columns unless needed
+        6. Always use the table name: ${tableName}
 
         **User Query:** "${query}"
         `;
@@ -333,8 +357,8 @@ async function queryAIForSQL(query) {
 
         const content = chatCompletion.choices[0].message.content.trim();
         const sql = content
-            .replace(/<think>[\s\S]*?<\/think>/g, "") // Remove <think> blocks
-            .replace(/```sql|```/g, "") // Remove markdown formatting
+            .replace(/<think>[\s\S]*?<\/think>/g, "")
+            .replace(/```sql|```/g, "")
             .trim()
             .split(";")[0];
 
@@ -360,8 +384,6 @@ async function executeSQL(sql) {
         throw new Error("Invalid SQL Query.");
     }
 }
-
-
 
 async function queryAIForChart(query, data) {
     try {
@@ -413,35 +435,183 @@ async function queryAIForChart(query, data) {
     }
 }
 
+// Error handling middleware
+const errorHandler = (err, req, res, next) => {
+    console.error(err.stack);
 
-// Endpoint to handle user queries
-app.post("/query", async (req, res) => {
-    const { query } = req.body;
+    // Handle specific error types
+    if (err.name === 'MulterError') {
+        return res.status(400).json({
+            error: 'File upload error',
+            message: err.message
+        });
+    }
 
-    if (!query) {
-        return res.status(400).json({ error: "Query is required" });
+    if (err.name === 'ValidationError') {
+        return res.status(400).json({
+            error: 'Validation error',
+            message: err.message
+        });
+    }
+
+    // Default error
+    res.status(500).json({
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    });
+};
+
+// Request logging middleware
+const requestLogger = (req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        console.log(`${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
+    });
+    next();
+};
+
+app.use(requestLogger);
+app.use(errorHandler);
+
+// Add caching to data endpoint
+app.get("/data", cacheMiddleware(300), async (req, res) => {
+    if (uploadedData.length === 0) {
+        return res.status(400).json({ error: "No data available" });
     }
 
     try {
-        const sql = await queryAIForSQL(query);
-        const filteredData = await executeSQL(sql);
+        const result = await pool.query(`
+            SELECT name, SUM(total_sales) as totalSales
+            FROM uploaded_data
+            GROUP BY name
+            ORDER BY totalSales DESC
+        `);
 
-        const chartData = await queryAIForChart(query, filteredData);
-
-        res.json({
-            query,
-            sql,
-            filteredData,
-            chartData,
-        });
+        res.json({ chartData: result.rows });
     } catch (error) {
-        console.error("Error processing query:", error);
-        res.status(500).json({ error: error.message || "Internal Server Error" });
+        next(error);
     }
 });
 
+// Add endpoint to delete a specific table
+app.delete('/table/:tableName', async (req, res, next) => {
+    const { tableName } = req.params;
 
-// Start the server
+    try {
+        // Verify table exists
+        const tableExists = await verifyTableExists(tableName);
+        if (!tableExists) {
+            return res.status(404).json({ error: "Table not found" });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Delete the table
+            await client.query(`DROP TABLE IF EXISTS ${tableName}`);
+
+            // Remove from registry
+            await client.query(
+                'DELETE FROM tables_registry WHERE table_name = $1',
+                [tableName]
+            );
+
+            await client.query('COMMIT');
+
+            res.json({
+                message: `Table ${tableName} successfully deleted`,
+                deletedTable: tableName
+            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Add endpoint to delete all tables
+app.delete('/tables/all', async (req, res, next) => {
+    try {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Get all table names from registry
+            const result = await client.query('SELECT table_name FROM tables_registry');
+            const tables = result.rows;
+
+            // Drop each table
+            for (const table of tables) {
+                await client.query(`DROP TABLE IF EXISTS ${table.table_name}`);
+            }
+
+            // Clear the registry
+            await client.query('DELETE FROM tables_registry');
+
+            await client.query('COMMIT');
+
+            res.json({
+                message: "All tables successfully deleted",
+                deletedCount: tables.length,
+                deletedTables: tables.map(t => t.table_name)
+            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Add OPTIONS handling for preflight requests
+app.options('*', cors()); // Enable pre-flight for all routes
+
+//cleanup function for the uploads folder
+function cleanupUploadsFolder() {
+    const uploadsDir = 'uploads';
+
+    // Create uploads directory if it doesn't exist
+    if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir);
+        return;
+    }
+
+    // Read all files in the uploads directory
+    fs.readdir(uploadsDir, (err, files) => {
+        if (err) {
+            console.error('Error reading uploads directory:', err);
+            return;
+        }
+
+        // Delete each file
+        files.forEach(file => {
+            const filePath = `${uploadsDir}/${file}`;
+            fs.unlink(filePath, (err) => {
+                if (err) {
+                    console.error(`Error deleting file ${file}:`, err);
+                } else {
+                    console.log(`Deleted temporary file: ${file}`);
+                }
+            });
+        });
+    });
+}
+
+// Clean up uploads folder when server starts
+cleanupUploadsFolder();
+
+// Optional: Add periodic cleanup (e.g., every hour)
+setInterval(cleanupUploadsFolder, 3600000); // 1 hour in milliseconds
+
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 })
