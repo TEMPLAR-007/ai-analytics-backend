@@ -14,6 +14,7 @@ import { dirname, join } from 'path';
 import NodeCache from 'node-cache';
 import compression from 'compression';
 import fs from 'fs';
+import PQueue from 'p-queue';
 
 // Load environment variables
 dotenv.config();
@@ -52,8 +53,19 @@ app.use(cors({
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
+    max: 500, // increased from 100 to 500 requests per windowMs
+    message: { error: "Too many requests, please try again later" },
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
+
+// Create a less restrictive limiter for the /tables endpoint
+const tablesLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 60, // 60 requests per minute
+    message: { error: "Too many table requests, please try again later" }
+});
+
 app.use(limiter);
 
 // Body parser with size limits
@@ -133,7 +145,40 @@ pool.connect()
     .then(() => console.log("✅ PostgreSQL Pool Connected"))
     .catch(err => console.error("❌ PostgreSQL Pool Connection Error:", err));
 
+// Add this after your database connection setup
+async function ensureTableStructure() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
 
+        // Check if columns exist and add them if they don't
+        const checkColumns = await client.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'tables_registry'
+            AND column_name IN ('example_queries', 'data_summary');
+        `);
+
+        if (checkColumns.rows.length < 2) {
+            await client.query(`
+                ALTER TABLE tables_registry
+                ADD COLUMN IF NOT EXISTS example_queries JSONB,
+                ADD COLUMN IF NOT EXISTS data_summary JSONB;
+            `);
+        }
+
+        await client.query('COMMIT');
+        console.log('✅ Table structure updated successfully');
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('❌ Error updating table structure:', error);
+    } finally {
+        client.release();
+    }
+}
+
+// Call this function when your server starts
+ensureTableStructure().catch(console.error);
 
 //function to verify table exists in database
 async function verifyTableExists(tableName) {
@@ -151,6 +196,13 @@ async function verifyTableExists(tableName) {
         return false;
     }
 }
+
+// Queue for AI requests with concurrency limit and rate limiting
+const aiQueue = new PQueue({
+    concurrency: 1, // Process one request at a time
+    interval: 1000, // Minimum time between requests (1 second)
+    intervalCap: 1  // Maximum number of requests per interval
+});
 
 // Modify the upload endpoint to clean up files
 app.post('/upload', upload.single('file'), async (req, res, next) => {
@@ -192,7 +244,9 @@ app.post('/upload', upload.single('file'), async (req, res, next) => {
                     table_name TEXT UNIQUE,
                     original_file_name TEXT,
                     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    columns JSONB
+                    columns JSONB,
+                    example_queries JSONB,
+                    data_summary JSONB
                 );
             `);
 
@@ -228,12 +282,17 @@ app.post('/upload', upload.single('file'), async (req, res, next) => {
                 VALUES ($1, $2, $3)
             `, [tableName, req.file.originalname, JSON.stringify(Object.keys(data[0]))]);
 
+            // Start async processing of insights
+            processDataInsights(tableName, data, pool).catch(console.error);
+
             await client.query('COMMIT');
 
             res.json({
                 message: "File uploaded and data stored successfully",
                 tableName: tableName,
-                originalFileName: req.file.originalname
+                originalFileName: req.file.originalname,
+                columns: Object.keys(data[0]),
+                totalRows: data.length
             });
         } catch (err) {
             await client.query('ROLLBACK');
@@ -253,8 +312,8 @@ app.post('/upload', upload.single('file'), async (req, res, next) => {
     }
 });
 
-// Modify the tables endpoint to fetch from database
-app.get('/tables', async (req, res, next) => {
+// Modify the tables endpoint to use the less restrictive limiter
+app.get('/tables', tablesLimiter, async (req, res, next) => {
     try {
         const result = await pool.query(`
             SELECT * FROM tables_registry
@@ -333,8 +392,10 @@ async function queryAIForSQL(query, tableName) {
         `);
 
         const schemaDescription = schema.rows
-            .map(col => `${col.column_name} (${col.data_type})`)
+            .map(col => `"${col.column_name}" (${col.data_type})`)
             .join(", ");
+
+        const columnsList = schema.rows.map(col => `"${col.column_name}"`).join(', ');
 
         const prompt = `
         You are an AI that converts natural language queries into valid PostgreSQL queries.
@@ -343,10 +404,24 @@ async function queryAIForSQL(query, tableName) {
         - Table name: ${tableName}
         - Columns: ${schemaDescription}
 
+        **CRITICAL SQL FORMATTING RULES:**
+        1. ALWAYS enclose column names in double quotes to preserve case sensitivity
+           Correct: SELECT "Category", "Total"
+           Incorrect: SELECT Category, Total
+
+        2. Example of proper column quoting:
+           - For single column: SELECT "Customer Name"
+           - For aggregates: SELECT "Category", SUM("Total")
+           - In WHERE clause: WHERE "Order Date" > '2024-01-01'
+           - In GROUP BY: GROUP BY "Category", "Status"
+
+        **Available Columns (always use exactly as shown with quotes):**
+        ${columnsList}
+
         **Sample Data:**
         ${JSON.stringify(sampleData.rows, null, 2)}
 
-        **Important SQL Rules:**
+        **Additional SQL Rules:**
         1. When using aggregate functions (SUM, COUNT, AVG, etc.), all non-aggregated columns MUST be included in GROUP BY
         2. If mixing aggregate and non-aggregate columns, use GROUP BY for all non-aggregated columns
         3. Always return ONLY the SQL query with NO additional text
@@ -372,6 +447,22 @@ async function queryAIForSQL(query, tableName) {
             .replace(/```sql|```/g, "")
             .trim()
             .split(";")[0];
+
+        // Validate that all column references are properly quoted
+        const columnNames = schema.rows.map(col => col.column_name);
+        const unquotedColumns = columnNames.filter(col =>
+            sql.includes(` ${col} `) || sql.includes(`${col},`) || sql.includes(`,${col}`)
+        );
+
+        if (unquotedColumns.length > 0) {
+            // If we find unquoted columns, modify the query to add quotes
+            let fixedSql = sql;
+            unquotedColumns.forEach(col => {
+                const regex = new RegExp(`\\b${col}\\b`, 'g');
+                fixedSql = fixedSql.replace(regex, `"${col}"`);
+            });
+            return fixedSql;
+        }
 
         console.log("Generated SQL:", sql);
         return sql;
@@ -443,6 +534,134 @@ async function queryAIForChart(query, data) {
     } catch (error) {
         console.error("Error processing chart data:", error);
         return { error: "Failed to generate chart data" };
+    }
+}
+
+// Modify the generateExampleQueries function
+async function generateExampleQueries(data, columns) {
+    return aiQueue.add(async () => {
+        try {
+            const prompt = `
+            Given this dataset with columns: ${columns.join(', ')}
+            And sample data: ${JSON.stringify(data.slice(0, 3))}
+
+            Return ONLY a JSON array of 5 example queries. No explanation, no thinking process, no json keyword, no backticks.
+            Example format:
+            [
+                "Show me total sales by category",
+                "What are the top 5 customers by order value",
+                "How many orders are in each status",
+                "What is the average order value",
+                "Show me sales trends over time"
+            ]
+            `;
+
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [{ role: "user", content: prompt }],
+                model: "deepseek-r1-distill-llama-70b",
+                temperature: 0.7,
+                max_completion_tokens: 4096,
+                top_p: 0.95,
+                stream: false,
+            });
+
+            let content = chatCompletion.choices[0].message.content.trim();
+
+            content = content
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .replace(/```[\s\S]*?```/g, '')
+                .replace(/^json\s*/i, '')
+                .replace(/^[\s\n]*\[/, '[')
+                .replace(/\][\s\n]*$/, ']')
+                .trim();
+
+            try {
+                return JSON.parse(content);
+            } catch (parseError) {
+                console.error("Error parsing AI response:", parseError);
+                return ["Show me all data", "Count total rows", "Show summary statistics"];
+            }
+        } catch (error) {
+            console.error("Error generating example queries:", error);
+            return ["Show me all data", "Count total rows", "Show summary statistics"];
+        }
+    });
+}
+
+// Modify the generateDataSummary function
+async function generateDataSummary(data, columns) {
+    return aiQueue.add(async () => {
+        try {
+            const prompt = `
+            Analyze this dataset:
+            Columns: ${columns.join(', ')}
+            Sample data: ${JSON.stringify(data.slice(0, 5))}
+            Total rows: ${data.length}
+
+            Return ONLY a JSON object with a summary paragraph. No explanation, no thinking process, no json keyword, no backticks.
+            Example format:
+            {
+                "summary": "This dataset contains sales information with X rows..."
+            }
+            `;
+
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [{ role: "user", content: prompt }],
+                model: "deepseek-r1-distill-llama-70b",
+                temperature: 0.7,
+                max_completion_tokens: 4096,
+                top_p: 0.95,
+                stream: false,
+            });
+
+            let content = chatCompletion.choices[0].message.content.trim();
+
+            content = content
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .replace(/```[\s\S]*?```/g, '')
+                .replace(/^json\s*/i, '')
+                .replace(/^[\s\n]*{/, '{')
+                .replace(/}[\s\n]*$/, '}')
+                .trim();
+
+            try {
+                return JSON.parse(content);
+            } catch (parseError) {
+                console.error("Error parsing AI response. Content:", content);
+                return {
+                    summary: `This dataset contains ${data.length} rows with ${columns.length} columns (${columns.join(', ')}). You can analyze this data using various queries to gain insights into the patterns and relationships within the information.`
+                };
+            }
+        } catch (error) {
+            console.error("Error generating data summary:", error);
+            return {
+                summary: `This dataset contains ${data.length} rows with ${columns.length} columns (${columns.join(', ')}). You can analyze this data using various queries to gain insights into the patterns and relationships within the information.`
+            };
+        }
+    });
+}
+
+// Modify processDataInsights to handle the queue
+async function processDataInsights(tableName, data, client) {
+    try {
+        console.log(`🔄 Starting insight generation for table ${tableName}...`);
+
+        // Generate insights asynchronously with proper queuing
+        const [exampleQueries, dataSummary] = await Promise.all([
+            generateExampleQueries(data, Object.keys(data[0])),
+            generateDataSummary(data, Object.keys(data[0]))
+        ]);
+
+        // Update the registry with the generated insights
+        await client.query(`
+            UPDATE tables_registry
+            SET example_queries = $1, data_summary = $2
+            WHERE table_name = $3
+        `, [JSON.stringify(exampleQueries), JSON.stringify(dataSummary), tableName]);
+
+        console.log(`✅ Generated insights for table ${tableName}`);
+    } catch (error) {
+        console.error(`❌ Error generating insights for table ${tableName}:`, error);
     }
 }
 
@@ -622,6 +841,45 @@ cleanupUploadsFolder();
 
 // Optional: Add periodic cleanup (e.g., every hour)
 setInterval(cleanupUploadsFolder, 3600000); // 1 hour in milliseconds
+
+// Add new endpoint for fetching table insights
+app.get('/table-insights/:tableName', async (req, res, next) => {
+    try {
+        const { tableName } = req.params;
+
+        // Check if insights exist in cache
+        const cacheKey = `insights_${tableName}`;
+        const cachedInsights = cache.get(cacheKey);
+        if (cachedInsights) {
+            return res.json(cachedInsights);
+        }
+
+        // Fetch insights from database
+        const result = await pool.query(`
+            SELECT example_queries, data_summary
+            FROM tables_registry
+            WHERE table_name = $1
+        `, [tableName]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Table not found" });
+        }
+
+        const insights = {
+            exampleQueries: result.rows[0].example_queries || [],
+            dataSummary: result.rows[0].data_summary || {
+                summary: "Analysis in progress"
+            }
+        };
+
+        // Cache the insights
+        cache.set(cacheKey, insights, 300); // Cache for 5 minutes
+
+        res.json(insights);
+    } catch (error) {
+        next(error);
+    }
+});
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
